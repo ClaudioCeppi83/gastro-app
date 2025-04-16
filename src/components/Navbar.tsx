@@ -16,14 +16,15 @@ export function Navbar() {
   return (
     <div className="bg-background border-b flex h-16 items-center px-4">
       <div className="font-semibold text-xl">
-        Firebase Studio
+        OrderFlow
       </div>
       <div className="ml-auto flex items-center space-x-4">
         <Button variant="link">Home</Button>
-        <Button variant="link">Services</Button>
-        <Button variant="link">Pricing</Button>
-        <Button variant="link">Contact</Button>
+        <Button variant="link">Orders</Button>
+        <Button variant="link">Reports</Button>
+        <Button variant="link">Menu</Button>
       </div>
     </div>
   );
 }
+
