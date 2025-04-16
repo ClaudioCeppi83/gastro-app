@@ -122,6 +122,18 @@ export default function Home() {
         }
     };
 
+    const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value;
+        // Remove leading zeros
+        value = value.replace(/^0+/, '');
+        // Ensure no negative numbers
+        if (value === '' || parseInt(value) < 0) {
+            setPrice(0);
+        } else {
+            setPrice(parseInt(value));
+        }
+    };
+
   return (
     <div className="flex flex-col md:flex-row p-4 gap-4 min-h-screen bg-background">
       <Toaster />
@@ -190,8 +202,9 @@ export default function Home() {
               id="price"
               type="number"
               value={price}
-              onChange={(e) => setPrice(Number(e.target.value))}
+              onChange={handlePriceChange}
               min="0"
+              className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
           <Button onClick={addOrderItem} className="w-full">Add to Order</Button>
