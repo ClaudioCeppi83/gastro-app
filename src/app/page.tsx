@@ -98,6 +98,30 @@ export default function Home() {
     fetchAISuggestions();
   }, [orderItems]);
 
+    const handleTableNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value;
+        // Remove leading zeros
+        value = value.replace(/^0+/, '');
+        // Ensure no negative numbers
+        if (value === '' || parseInt(value) < 0) {
+            setTableNumber(undefined);
+        } else {
+            setTableNumber(parseInt(value));
+        }
+    };
+
+    const handleGuestCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value;
+        // Remove leading zeros
+        value = value.replace(/^0+/, '');
+        // Ensure no negative numbers
+        if (value === '' || parseInt(value) < 0) {
+            setGuestCount(undefined);
+        } else {
+            setGuestCount(parseInt(value));
+        }
+    };
+
   return (
     <div className="flex flex-col md:flex-row p-4 gap-4 min-h-screen bg-background">
       <Toaster />
@@ -115,10 +139,7 @@ export default function Home() {
               id="tableNumber"
               type="number"
               value={tableNumber !== undefined ? tableNumber : ''}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setTableNumber(isNaN(value) || value < 0 ? 0 : value);
-              }}
+              onChange={handleTableNumberChange}
               min="0"
               className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -129,10 +150,7 @@ export default function Home() {
               id="guestCount"
               type="number"
               value={guestCount !== undefined ? guestCount : ''}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setGuestCount(isNaN(value) || value < 0 ? 0 : value);
-              }}
+              onChange={handleGuestCountChange}
               min="0"
               className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -255,4 +273,3 @@ export default function Home() {
     </div>
   );
 }
-
