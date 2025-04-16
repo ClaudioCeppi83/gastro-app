@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardHeader,
@@ -13,10 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Icons } from '@/components/icons';
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { suggestProducts, SuggestProductsOutput } from '@/ai/flows/product-suggestions';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
@@ -45,13 +42,12 @@ export default function Home() {
   const [guestCount, setGuestCount] = useState<number | undefined>(undefined);
   const [product, setProduct] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [price, setPrice] = useState(0);
+  const [price, setPrice] = useState('');
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [tip, setTip] = useState(0);
   const subtotal = calculateSubtotal(orderItems);
   const iva = calculateIVA(subtotal);
   const total = calculateTotal(subtotal, iva, tip);
-  const [aiSuggestions, setAiSuggestions] = useState<SuggestProductsOutput>([]);
 
   const addOrderItem = () => {
     if (!product || quantity <= 0 || price <= 0) {
@@ -72,31 +68,8 @@ export default function Home() {
     setOrderItems([...orderItems, newItem]);
     setProduct('');
     setQuantity(1);
-    setPrice(0);
+    setPrice('');
   };
-
-  const fetchAISuggestions = async () => {
-    if (orderItems.length === 0) {
-      return;
-    }
-    try {
-      const suggestions = await suggestProducts({
-        orderItems: orderItems.map(item => ({ productName: item.product, quantity: item.quantity }))
-      });
-      setAiSuggestions(suggestions);
-    } catch (error: any) {
-      console.error("Failed to fetch AI suggestions:", error);
-      toast({
-        title: "Error!",
-        description: "Failed to fetch AI suggestions.",
-        variant: "destructive",
-      })
-    }
-  };
-
-  useEffect(() => {
-    fetchAISuggestions();
-  }, [orderItems]);
 
     const handleTableNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value;
@@ -128,14 +101,14 @@ export default function Home() {
         value = value.replace(/^0+/, '');
         // Ensure no negative numbers
         if (value === '' || parseInt(value) < 0) {
-            setPrice(0);
+            setPrice('');
         } else {
-            setPrice(parseInt(value));
+            setPrice(value);
         }
     };
 
   return (
-    <div className="flex flex-col md:flex-row p-4 gap-4 min-h-screen bg-background">
+    <div className="flex flex-col md:flex-row p-4 gap-4 min-h-screen bg-background" suppressHydrationWarning={true}>
       <Toaster />
 
       {/* Table Configuration Card */}
@@ -199,7 +172,7 @@ export default function Home() {
           <div>
             <Label htmlFor="price">Price</Label>
             <Input
-              id="price"
+              id="priceInput"
               type="number"
               value={price}
               onChange={handlePriceChange}
@@ -265,25 +238,6 @@ export default function Home() {
           </div>
         </CardFooter>
       </Card>
-
-      {/* AI Product Suggestions Card */}
-      {aiSuggestions.length > 0 && (
-        <Card className="w-full md:w-1/4">
-          <CardHeader>
-            <CardTitle>AI Product Suggestions</CardTitle>
-            <CardDescription>Suggestions based on your current order.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {aiSuggestions.map((suggestion, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span>{suggestion.productName}</span>
-                <Badge variant="secondary">{suggestion.reason}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
-

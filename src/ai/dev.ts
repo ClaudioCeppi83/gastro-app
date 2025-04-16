@@ -1,1 +1,1 @@
-import '@/ai/flows/product-suggestions.ts';
+// Empty file to disable AI features

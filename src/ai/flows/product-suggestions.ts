@@ -75,3 +75,4 @@ const suggestProductsFlow = ai.defineFlow<
   const {output} = await suggestProductsPrompt(input);
   return output!;
 });
+
