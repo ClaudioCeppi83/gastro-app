@@ -197,15 +197,15 @@ export default function Home() {
             </ScrollArea>
           </CardContent>
           <CardFooter className="flex flex-col space-y-2">
-            <div className="flex justify-between w-full">
+            <section className="flex justify-between w-full">
               <strong>Subtotal:</strong>
               <strong>{subtotal.toFixed(2)}</strong>
-            </div>
-            <div className="flex justify-between w-full">
+            </section>
+            <section className="flex justify-between w-full">
               <strong>I.V.A. (21%):</strong>
               <strong>{iva.toFixed(2)}</strong>
-            </div>
-            <div className="w-full">
+            </section>
+            <section className="w-full">
               <Label htmlFor="tip">Tip</Label>
               <select
                 id="tip"
@@ -220,12 +220,12 @@ export default function Home() {
                   <option key={val} value={val}>{val}%</option>
                 ))}
               </select>
-            </div>
+            </section>
             <Separator />
-            <div className="flex justify-between w-full font-semibold">
+            <section className="flex justify-between w-full font-semibold">
               <strong>Total:</strong>
               <strong>{total.toFixed(2)}</strong>
-            </div>
+            </section>
           </CardFooter>
         </Card>
       </article>
