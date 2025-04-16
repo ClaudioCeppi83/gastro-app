@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import {
   Sheet,
   SheetContent,
@@ -14,17 +14,24 @@ import { Menu } from "lucide-react"
 
 export function Navbar() {
   return (
-    <div className="bg-background border-b flex h-16 items-center px-4">
-      <div className="font-semibold text-xl">
-        OrderFlow
-      </div>
-      <div className="ml-auto flex items-center space-x-4">
-        <Button variant="link" href="/">Home</Button>
-        <Button variant="link" href="/orders">Orders</Button>
-        <Button variant="link" href="/reports">Reports</Button>
-        <Button variant="link" href="/menu">Menu</Button>
-      </div>
-    </div>
+    <nav className="bg-background border-b flex h-16 items-center px-4">
+      <Link href="/" className="font-semibold text-xl">
+        OrderFlow {/* Assuming OrderFlow is the logo/home link */}
+      </Link>
+      <ul className="ml-auto flex items-center space-x-4">
+        <li>
+          <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
+            Home
+          </Link>
+        </li>
+        <li><Link href="/orders" className="text-sm font-medium transition-colors hover:text-primary">Orders</Link></li>
+        <li>
+          <Link href="/reports" className="text-sm font-medium transition-colors hover:text-primary">
+            Reports
+          </Link>
+        </li>
+        <li><Link href="/menu" className="text-sm font-medium transition-colors hover:text-primary">Menu</Link></li>
+      </ul>
+    </nav>
   );
 }
-
