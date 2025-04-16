@@ -115,7 +115,12 @@ export default function Home() {
               id="tableNumber"
               type="number"
               value={tableNumber !== undefined ? tableNumber : ''}
-              onChange={(e) => setTableNumber(Number(e.target.value))}
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                setTableNumber(isNaN(value) || value < 0 ? 0 : value);
+              }}
+              min="0"
+              className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
           <div>
@@ -124,7 +129,12 @@ export default function Home() {
               id="guestCount"
               type="number"
               value={guestCount !== undefined ? guestCount : ''}
-              onChange={(e) => setGuestCount(Number(e.target.value))}
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                setGuestCount(isNaN(value) || value < 0 ? 0 : value);
+              }}
+              min="0"
+              className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
         </CardContent>
@@ -245,3 +255,4 @@ export default function Home() {
     </div>
   );
 }
+
