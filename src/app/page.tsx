@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from '@/components/ui/separator';
 import { Toaster } from '@/components/ui/toaster';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface OrderItem {
   id: string;
@@ -48,6 +48,8 @@ export default function Home() {
   const subtotal = calculateSubtotal(orderItems);
   const iva = calculateIVA(subtotal);
   const total = calculateTotal(subtotal, iva, tip);
+
+  const { toast } = useToast()
 
   const addOrderItem = () => {
     if (!product || quantity <= 0 || price <= 0) {
@@ -241,3 +243,4 @@ export default function Home() {
     </div>
   );
 }
+

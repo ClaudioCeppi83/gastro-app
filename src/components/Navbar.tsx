@@ -19,10 +19,10 @@ export function Navbar() {
         OrderFlow
       </div>
       <div className="ml-auto flex items-center space-x-4">
-        <Button variant="link">Home</Button>
-        <Button variant="link">Orders</Button>
-        <Button variant="link">Reports</Button>
-        <Button variant="link">Menu</Button>
+        <Button variant="link" href="/">Home</Button>
+        <Button variant="link" href="/orders">Orders</Button>
+        <Button variant="link" href="/reports">Reports</Button>
+        <Button variant="link" href="/menu">Menu</Button>
       </div>
     </div>
   );
