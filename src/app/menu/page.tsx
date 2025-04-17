@@ -14,37 +14,58 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import PageTitle from "@/components/ui/page-title";
 
-interface Dish {
-  name: string;
-  ingredients: string;
-  price: number;
+interface MenuItem {
+  dish_id: number;
+  dish_name: string;
+  category_name: string;
+  unit_price: number;
 }
 
-const STORAGE_KEY = "menu_dishes";
+interface Category {
+  category_id: number;
+  name: string;
+}
 
 export default function Menu() {
-  const initialDishes = () => {
-    const storedDishes = localStorage.getItem(STORAGE_KEY);
-    if (!storedDishes) {
-      return [
-        { name: "Pizza Margherita", ingredients: "Tomato, Mozzarella, Basil", price: 10.99 },
-        { name: "Pizza Pepperoni", ingredients: "Tomato, Mozzarella, Pepperoni", price: 12.99 },
-        { name: "Pizza Hawaiian", ingredients: "Tomato, Mozzarella, Ham, Pineapple", price: 11.99 },
-        { name: "Pizza Vegetarian", ingredients: "Tomato, Mozzarella, Mushrooms, Peppers, Onions", price: 11.99 },
-        { name: "Pizza BBQ Chicken", ingredients: "BBQ Sauce, Mozzarella, Chicken, Red Onion", price: 13.99 },
-        { name: "Pasta Spaghetti", ingredients: "Spaghetti, Tomato Sauce, Basil", price: 9.99 },
-        { name: "Pasta Fettuccine", ingredients: "Fettuccine, Alfredo Sauce, Parmesan Cheese", price: 11.99 },
-        { name: "Pasta Penne", ingredients: "Penne, Pesto, Cherry Tomatoes", price: 10.99 },
-      ];
-    }
-    return JSON.parse(storedDishes);
-  };
-
-  const [dishes, setDishes] = useState<Dish[]>(initialDishes);
-  const [newDish, setNewDish] = useState<Dish>({ name: "", ingredients: "", price: 0 });
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [newDish, setNewDish] = useState<{ name: string; unit_price: number; category_id: string }>({ name: "", unit_price: 0, category_id: "" });
   const [newDishPrice, setNewDishPrice] = useState("");
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const fetchMenuItems = async () => {
+      try {
+        const response = await fetch('/api/menu');
+        if (response.ok) {
+          const data: MenuItem[] = await response.json();
+          setMenuItems(data);
+        } else {
+          console.error("Failed to fetch menu:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching menu:", error);
+      }
+    };
+
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories'); // Assuming you'll create this API route
+        if (response.ok) {
+          const data: Category[] = await response.json();
+          setCategories(data);
+        } else {
+          console.error("Failed to fetch categories:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+
+    fetchMenuItems();
+    fetchCategories();
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setNewDish({
       ...newDish,
@@ -57,24 +78,38 @@ export default function Menu() {
     value = value.replace(/^0+/, "");
     if (value === "" || parseInt(value) < 0) {
       setNewDishPrice("");
-      setNewDish({ ...newDish, price: 0 });
+      setNewDish({ ...newDish, unit_price: 0 });
     } else {
       setNewDishPrice(value);
-      setNewDish({ ...newDish, price: parseFloat(value) });
+      setNewDish({ ...newDish, unit_price: parseFloat(value) });
     }
   };
 
-  const addDish = () => {
-    if (newDish.name && newDish.ingredients && newDish.price > 0) {
-      setDishes([...dishes, newDish]);
-      setNewDish({ name: "", ingredients: "", price: 0 });
-      setNewDishPrice("");
+  const addDish = async () => {
+    if (newDish.name && newDish.unit_price > 0 && newDish.category_id) {
+      try {
+        const response = await fetch('/api/menu/add', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: newDish.name, unit_price: newDish.unit_price, category_id: Number(newDish.category_id) }),
+        });
+
+        if (response.ok) {
+          setNewDish({ name: "", unit_price: 0, category_id: "" });
+          setNewDishPrice("");
+          // Assuming the API returns the new dish's data, including dish_id
+          const newDishData = await response.json(); // Or response.text() if it's just a success message
+          fetchMenuItems(); // Refresh the menu list
+        } else {
+          console.error("Failed to add dish:", response.status);
+        }
+      } catch (error) {
+        console.error("Error adding dish:", error);
+      }
     }
   };
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dishes));
-  }, [dishes]);
 
   return (
     <>
@@ -86,16 +121,16 @@ export default function Menu() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Ingredients</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Unit Price</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dishes.map((dish, index) => (
-                <TableRow key={index} className="[&_td]:py-2">
-                  <TableCell>{dish.name}</TableCell>
-                  <TableCell>{dish.ingredients}</TableCell>
-                  <TableCell>${dish.price.toFixed(2)}</TableCell>
+              {menuItems.map((item) => (
+                <TableRow key={item.dish_id} className="[&_td]:py-2">
+                  <TableCell>{item.dish_name}</TableCell>
+                  <TableCell>{item.category_name}</TableCell>
+                  <TableCell>${item.unit_price.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -104,7 +139,7 @@ export default function Menu() {
 
         <section className="mt-10" aria-labelledby="form-section">
           <h2 id="form-section" className="text-xl font-semibold mb-4">Add New Dish</h2>
-          <form className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5" onSubmit={(e) => e.preventDefault()}>
+          <form className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5" onSubmit={(e) => { e.preventDefault(); addDish(); }}>
             <fieldset className="space-y-1">
               <legend className="sr-only">Dish Name</legend>
               <Label htmlFor="name">Name</Label>
@@ -117,22 +152,30 @@ export default function Menu() {
             </fieldset>
 
             <fieldset className="space-y-1">
-              <legend className="sr-only">Ingredients</legend>
-              <Label htmlFor="ingredients">Ingredients</Label>
-              <Input
-                id="ingredients"
-                name="ingredients"
-                value={newDish.ingredients}
+              <legend className="sr-only">Category</legend>
+              <Label htmlFor="category_id">Category</Label>
+              <select
+                id="category_id"
+                name="category_id"
+                value={newDish.category_id}
                 onChange={handleInputChange}
-              />
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select Category</option>
+                {categories.map((category) => (
+                  <option key={category.category_id} value={category.category_id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </fieldset>
 
             <fieldset className="space-y-1">
               <legend className="sr-only">Unit Price</legend>
-              <Label htmlFor="price">Unit Price</Label>
+              <Label htmlFor="unit_price">Unit Price</Label>
               <Input
-                id="price"
-                name="price"
+                id="unit_price"
+                name="unit_price"
                 type="text"
                 value={newDishPrice}
                 onChange={handleNewDishPriceChange}
@@ -143,7 +186,7 @@ export default function Menu() {
           </form>
 
           <footer className="mt-4">
-            <Button type="button" onClick={addDish}>
+            <Button type="submit">
               Add Dish
             </Button>
           </footer>

@@ -1,234 +1,184 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from '@/components/ui/separator';
-import { Toaster } from '@/components/ui/toaster';
-import { useToast } from "@/hooks/use-toast";
-
-interface OrderItem {
-  id: string;
-  product: string;
-  quantity: number;
-  price: number;
-}
-
-const calculateSubtotal = (orderItems: OrderItem[]) =>
-  orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-
-const calculateIVA = (subtotal: number) => subtotal * 0.21;
-const calculateTotal = (subtotal: number, iva: number, tip: number) => subtotal + iva + tip;
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 
 interface Dish {
+  id: number;
   name: string;
-  ingredients: string;
   price: number;
+  category_id: number;
 }
 
-export default function Home() {
-  const [tableNumber, setTableNumber] = useState<number | undefined>();
-  const [guestCount, setGuestCount] = useState<number | undefined>();
-  const [quantity, setQuantity] = useState(1);
-  const [price, setPrice] = useState('');
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [product, setProduct] = useState<Dish | null>(null);
-  const [tip, setTip] = useState(0);
-  const [tipPercentage, setTipPercentage] = useState("0");
-  const [dishes, setDishes] = useState<Dish[]>([]);
-  const { toast } = useToast();
+interface OrderItem {
+  dish: Dish;
+  quantity: number;
+}
 
-  const subtotal = calculateSubtotal(orderItems);
-  const iva = calculateIVA(subtotal);
-  const total = calculateTotal(subtotal, iva, tip);
+export default function HomePage() {
+  const [dishes, setDishes] = useState<Dish[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [orderId, setOrderId] = useState<number | null>(null);
 
   useEffect(() => {
-    const storedDishes = localStorage.getItem('menu_dishes');
-    setDishes(storedDishes ? JSON.parse(storedDishes) : []);
+    fetch('/api/dishes')
+      .then(res => res.json())
+      .then(data => setDishes(data))
+      .catch(error => {
+        console.error(error);
+      });
+
+    const createNewOrder = async () => {
+      try {
+        const response = await fetch('/api/orders/create', { method: 'POST' });
+        const data = await response.json();
+        if (response.ok && data.orderId) {
+          setOrderId(data.orderId);
+        } else {
+          throw new Error(data.error || 'Error al crear el pedido');
+        }
+      } catch (error: any) {
+        console.error(error);
+      }
+    };
+    createNewOrder();
   }, []);
 
-  const addOrderItem = () => {
-    if (!product || quantity <= 0) {
-      toast({
-        title: "Error!",
-        description: "Please select a product and quantity to add an item",
-        variant: "destructive",
-      });
-      return;
+  const addToOrder = (dish: Dish) => {
+    const existingItem = orderItems.find(item => item.dish.id === dish.id);
+    if (existingItem) {
+      setOrderItems(prev =>
+        prev.map(item =>
+          item.dish.id === dish.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      );
+    } else if (orderId) {
+      fetch(`/api/orders/${orderId}/items/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([
+          {
+            dish_id: dish.id,
+            quantity: 1,
+            ordered_name: dish.name,
+            ordered_unit_price: dish.price,
+          },
+        ]),
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Error al añadir el plato');
+          }
+          return response.json();
+        })
+        .then(() => {
+          // Fetch updated order items
+          fetchOrderItems();
+        })
+        .catch(error => {
+          console.error(error);
+        });
     }
-
-    const newItem: OrderItem = {
-      id: Date.now().toString(),
-      product: product.name,
-      quantity,
-      price: product.price,
-    };
-    setOrderItems([...orderItems, newItem]);
-    setProduct(null);
-    setQuantity(1);
-    setPrice('');
+    
   };
 
-  const handleInputChange = (
-    value: string,
-    setter: (val: number | undefined) => void
-  ) => {
-    value = value.replace(/^0+/, '');
-    const parsed = parseInt(value);
-    setter(value === '' || parsed < 0 ? undefined : parsed);
+  const removeFromOrder = (dishId: number) => {
+    setOrderItems(prev =>
+      prev
+        .map(item =>
+          item.dish.id === dishId
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        )
+        .filter(item => item.quantity > 0)
+    );
   };
+
+  const fetchOrderItems = () => {
+    if (orderId) {
+      fetch(`/api/orders/${orderId}/items`)
+        .then(response => response.json())
+        .then(data => {
+          // Assuming your API returns an array of { dish_id, quantity, ... }
+          if (Array.isArray(data)) {
+            const items = data.map((item: any) => ({
+              dish: { id: item.dish_id, name: item.ordered_name },
+              quantity: item.quantity,
+              order_dish_id: item.order_dish_id,
+            }));
+            setOrderItems(items);
+        }})
+        .catch(error => console.error("Error fetching order items:", error));
+    }
+  };
+
+  const total = orderItems.reduce(
+    (sum, item) => sum + item.dish.price * item.quantity,
+    0
+  );
 
   return (
-    <main className="flex flex-col md:flex-row p-4 gap-4 min-h-screen bg-background" suppressHydrationWarning={true}>
-      <Toaster />
+    <main className="max-w-4xl mx-auto p-6 space-y-8 relative">
+      {orderId && (
+        <div className="absolute top-4 right-4 bg-gray-100 rounded-md px-3 py-1 text-sm">
+          Pedido #{orderId}
+        </div>
+      )}
+      <header className="text-center">
+        <h1 className="text-3xl font-bold mb-2">Menú del Restaurante</h1>
+        <p className="text-muted-foreground">Haz tu pedido seleccionando los platos</p>
+      </header>
 
-      <section className="w-full md:w-1/4" aria-labelledby="table-config-title">
-        <Card>
-          <CardHeader>
-            <CardTitle id="table-config-title">Table Configuration</CardTitle>
-            <CardDescription>Set up table details for the order.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <section>
-              <Label htmlFor="tableNumber">Table Number</Label>
-              <Input
-                id="tableNumber"
-                type="number"
-                value={tableNumber ?? ''}
-                onChange={(e) => handleInputChange(e.target.value, setTableNumber)}
-                min="0"
-                className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </section>
-            <section>
-              <Label htmlFor="guestCount">Number of Guests</Label>
-              <Input
-                id="guestCount"
-                type="number"
-                value={guestCount ?? ''}
-                onChange={(e) => handleInputChange(e.target.value, setGuestCount)}
-                min="0"
-                className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </section>
-          </CardContent>
-        </Card>
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {dishes.map(dish => (
+          <article key={dish.id} className="p-4 rounded-xl shadow bg-white space-y-2">
+            <h2 className="text-xl font-semibold">{dish.name}</h2>
+            <p className="text-gray-700">{dish.price.toFixed(2)} €</p>
+            <Button onClick={() => addToOrder(dish)}>Añadir</Button>
+          </article>
+        ))}
       </section>
 
-      <section className="w-full md:w-1/4" aria-labelledby="add-product-title">
-        <Card>
-          <CardHeader>
-            <CardTitle id="add-product-title">Add Product</CardTitle>
-            <CardDescription>Add products to the current order.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <section>
-              <Label htmlFor="product">Product</Label>
-              <select
-                id="product"
-                value={product?.name ?? ""}
-                onChange={(e) =>
-                  setProduct(dishes.find((dish) => dish.name === e.target.value) || null)
-                }
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">Select a product</option>
-                {dishes.map((dish) => (
-                  <option key={dish.name} value={dish.name}>
-                    {dish.name}
-                  </option>
-                ))}
-              </select>
-            </section>
-            <section>
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-                min="1"
-              />
-            </section>
-            <Button onClick={addOrderItem} className="w-full">
-              Add to Order
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
-
-      <article className="w-full md:w-2/4" aria-labelledby="order-details-title">
-        <Card className="flex flex-col h-full">
-          <CardHeader>
-            <CardTitle id="order-details-title">Order Details</CardTitle>
-            <CardDescription>Details of the current order.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-grow">
-            <ScrollArea className="rounded-md border h-[400px] w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Price</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orderItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.product}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell>{item.price.toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
-            <section className="flex justify-between w-full">
-              <strong>Subtotal:</strong>
-              <strong>{subtotal.toFixed(2)}</strong>
-            </section>
-            <section className="flex justify-between w-full">
-              <strong>I.V.A. (21%):</strong>
-              <strong>{iva.toFixed(2)}</strong>
-            </section>
-            <section className="w-full">
-              <Label htmlFor="tip">Tip</Label>
-              <select
-                id="tip"
-                value={tipPercentage}
-                onChange={(e) => {
-                  setTipPercentage(e.target.value);
-                  setTip(subtotal * Number(e.target.value) / 100);
-                }}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {[0, 5, 10, 15, 20, 25, 30].map((val) => (
-                  <option key={val} value={val}>{val}%</option>
-                ))}
-              </select>
-            </section>
-            <Separator />
-            <section className="flex justify-between w-full font-semibold">
-              <strong>Total:</strong>
-              <strong>{total.toFixed(2)}</strong>
-            </section>
-          </CardFooter>
-        </Card>
-      </article>
+      <aside className="bg-gray-100 p-4 rounded-xl shadow space-y-4">
+        <h2 className="text-2xl font-bold">Pedido Actual</h2>
+        {orderItems.length === 0 ? (
+          <p className="text-gray-600">No hay productos en el pedido.</p>
+        ) : (
+          <ul className="space-y-2">
+            {orderItems.map(item => (
+              <li key={item.dish.id} className="flex justify-between items-center">
+                <p className="text-lg">
+                  {item.quantity}× {item.dish.name}
+                </p>
+                <div className="space-x-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => removeFromOrder(item.dish.id)}
+                  >
+                    -
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => addToOrder(item.dish)}
+                  >
+                    +
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <footer className="pt-4 border-t">
+          <p className="text-xl font-bold">Total: {total.toFixed(2)} €</p>
+        </footer>
+      </aside>
     </main>
   );
 }
