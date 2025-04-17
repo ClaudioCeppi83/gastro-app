@@ -176,7 +176,7 @@ export default function HomePage() {
             }));
             setOrderItems(items.map(item => ({ 
               ...item,
-              price: item.dish.price * item.quantity,
+              price: item.dish?.price * item.quantity,
             })));
           }
         }) 
