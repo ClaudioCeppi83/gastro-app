@@ -35,21 +35,32 @@ export default function HomePage() {
     const loadData = async () => {
       try {
         // 1. Cargar menú
-        const menuRes = await fetch('/api/menu');
-        if (!menuRes.ok) {
-          const errorMessage = `Failed to load menu: ${menuRes.status} ${menuRes.statusText}`;
-          throw new Error(errorMessage);
-        }
-        const menuData = await menuRes.json();
-        // Transformar datos para coincidir con tu interfaz Dish
-        const dishes = menuData.map((item: { dish_id: number; name: string; unit_price: number; category_id: number; category_name: string; }) => ({
-          id: item.dish_id,
-          name: item.name,
-          price: item.unit_price,
-          category_id: item.category_id,
-          category: item.category_name
-        }));
-        setDishes(dishes);
+        fetch('/api/menu')
+        .then(menuRes => {
+          if (!menuRes.ok) {
+            const errorMessage = `Failed to load menu: ${menuRes.status} ${menuRes.statusText}`;
+            throw new Error(errorMessage);
+          }
+          return menuRes.json();
+        })
+        .then(menuData => {
+          // Transformar datos para coincidir con tu interfaz Dish
+          const dishes = menuData.map((item: { dish_id: number; name: string; unit_price: number; category_id: number; category_name: string; }) => ({
+            id: item.dish_id,
+            name: item.name,
+            price: item.unit_price,
+            category_id: item.category_id,
+            category: item.category_name
+          }));
+          setDishes(dishes);
+        })
+        .catch((error: unknown) => {
+          if (error instanceof Error) {
+            console.error(error.message);
+          }
+          alert(`Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`);
+        });
+
         // 2. Crear nueva orden
         const orderRes = await fetch('/api/orders/create', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         if (!orderRes.ok) throw new Error('Failed to create order');
@@ -312,3 +323,4 @@ export default function HomePage() {
   );
   }
 }
+
