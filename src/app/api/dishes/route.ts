@@ -1,4 +1,3 @@
-ts
 // src/app/api/dishes/route.ts
 import { NextResponse } from 'next/server';
 

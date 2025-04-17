@@ -1,49 +1,74 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
+
 
 interface Dish {
   id: number;
   name: string;
   price: number;
   category_id: number;
+  category?: string;
 }
 
 interface OrderItem {
   dish: Dish;
   quantity: number;
+  order_dish_id: number;
+  price: number; 
 }
+
 
 export default function HomePage() {
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [orderId, setOrderId] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetch('/api/dishes')
-      .then(res => res.json())
-      .then(data => setDishes(data))
-      .catch(error => {
-        console.error(error);
-      });
-
-    const createNewOrder = async () => {
+    
+    const loadData = async () => {
       try {
-        const response = await fetch('/api/orders/create', { method: 'POST' });
-        const data = await response.json();
-        if (response.ok && data.orderId) {
-          setOrderId(data.orderId);
-        } else {
-          throw new Error(data.error || 'Error al crear el pedido');
+        // 1. Cargar menú
+        const menuRes = await fetch('/api/menu');
+        if (!menuRes.ok) {
+          const errorMessage = `Failed to load menu: ${menuRes.status} ${menuRes.statusText}`;
+          throw new Error(errorMessage);
         }
-      } catch (error: any) {
-        console.error(error);
+        const menuData = await menuRes.json();
+        // Transformar datos para coincidir con tu interfaz Dish
+        const dishes = menuData.map((item: { dish_id: number; name: string; unit_price: number; category_id: number; category_name: string; }) => ({
+          id: item.dish_id,
+          name: item.name,
+          price: item.unit_price,
+          category_id: item.category_id,
+          category: item.category_name
+        }));
+        setDishes(dishes);
+        // 2. Crear nueva orden
+        const orderRes = await fetch('/api/orders/create', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        if (!orderRes.ok) throw new Error('Failed to create order');
+        const { orderId } = await orderRes.json();
+        setOrderId(orderId);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          console.error(error.message);
+        }
+        alert(`Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`);
       }
-    };
-    createNewOrder();
+    }
+
+
+ useEffect(() => {
+    loadData();
+    console.log("Dishes:", dishes);
+    console.log("Order Items:", orderItems);
+    console.log("Order ID:", orderId);
   }, []);
 
   const addToOrder = (dish: Dish) => {
@@ -59,7 +84,7 @@ export default function HomePage() {
     } else if (orderId) {
       fetch(`/api/orders/${orderId}/items/add`, {
         method: 'POST',
-        headers: {
+      headers: { 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify([
@@ -68,7 +93,8 @@ export default function HomePage() {
             quantity: 1,
             ordered_name: dish.name,
             ordered_unit_price: dish.price,
-          },
+            ordered_category_id: dish.category_id,
+          }
         ]),
       })
         .then(response => {
@@ -81,104 +107,208 @@ export default function HomePage() {
           // Fetch updated order items
           fetchOrderItems();
         })
-        .catch(error => {
+        .catch((error: unknown) => {
           console.error(error);
         });
     }
-    
+
   };
 
-  const removeFromOrder = (dishId: number) => {
-    setOrderItems(prev =>
-      prev
-        .map(item =>
-          item.dish.id === dishId
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        )
-        .filter(item => item.quantity > 0)
-    );
+  const removeFromOrder = (orderDishId: number) => {
+    if (orderId) {
+      fetch(`/api/orders/${orderId}/items/${orderDishId}/delete`, {
+        method: 'DELETE',
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Error al eliminar el plato');
+          }
+          return response.json();
+        })
+        .then(() => {
+          // Fetch updated order items
+          fetchOrderItems();
+        })
+        .catch((error: unknown) => {
+          if (error instanceof Error) { console.error(error.message); }
+        });
+    }
+    // setOrderItems(prev =>
+    //   prev
+    //     .map(item =>
+    //       item.dish.id === dishId
+    //         ? { ...item, quantity: item.quantity - 1 }
+    //         : item
+    //     )
+    //     .filter(item => item.quantity > 0)
+    // );    
+    
   };
 
   const fetchOrderItems = () => {
     if (orderId) {
-      fetch(`/api/orders/${orderId}/items`)
-        .then(response => response.json())
-        .then(data => {
-          // Assuming your API returns an array of { dish_id, quantity, ... }
-          if (Array.isArray(data)) {
-            const items = data.map((item: any) => ({
-              dish: { id: item.dish_id, name: item.ordered_name },
+      Promise.all([
+        fetch(`/api/orders/${orderId}/items`).then(res => res.json()),
+        fetch('/api/dishes').then(res => res.json())
+      ])
+        .then(([orderItemsData, dishesData]) => {
+          if (Array.isArray(orderItemsData) && Array.isArray(dishesData)) {
+            const dishMap = dishesData.reduce((map: any, dish: Dish) => {
+              map[dish.id] = dish;
+              return map;
+            }, {});
+
+            const items = orderItemsData.map((item: any) => ({
+              dish: dishMap[item.dish_id] || { id: item.dish_id, name: item.ordered_name, price: 0, category_id: 0 },
               quantity: item.quantity,
               order_dish_id: item.order_dish_id,
             }));
-            setOrderItems(items);
-        }})
-        .catch(error => console.error("Error fetching order items:", error));
+            setOrderItems(items.map(item => ({ 
+              ...item,
+              price: item.dish.price * item.quantity,
+            })));
+          }
+        }) 
+        .catch((error: unknown) => {
+          if (error instanceof Error) { console.error("Error fetching order items:", error.message); }
+          console.error("Error fetching order items:", error);
+        });
+  };
+
+  const calculateTotals = () => {
+    const subtotal = orderItems.reduce((sum, item) => sum + item.price, 0);
+    const iva = subtotal * 0.12;
+    const tip = subtotal * 0.10;
+    const total = subtotal + iva + tip;
+    return { subtotal, iva, tip, total };
+  };
+
+  const totals = calculateTotals();
+  const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
+  const [quantity, setQuantity] = useState<number>(1);
+  const [tableNumber, setTableNumber] = useState<string>('');
+  const [guestCount, setGuestCount] = useState<number>(1);
+
+
+  const handleAddProduct = () => {
+    if (selectedDish) {
+      for (let i = 0; i < quantity; i++) {
+        addToOrder(selectedDish);
+      }
+      setSelectedDish(null);
+      setQuantity(1);
     }
   };
 
-  const total = orderItems.reduce(
-    (sum, item) => sum + item.dish.price * item.quantity,
-    0
-  );
-
   return (
-    <main className="max-w-4xl mx-auto p-6 space-y-8 relative">
-      {orderId && (
-        <div className="absolute top-4 right-4 bg-gray-100 rounded-md px-3 py-1 text-sm">
-          Pedido #{orderId}
+    <div className="flex flex-col h-screen">
+      <main className="container mx-auto py-8 flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuración de Mesa</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="tableNumber">Nº de mesa</Label>
+                <Input id="tableNumber" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} className="w-24" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="guestCount">Cantidad de Personas</Label>
+                <Input id="guestCount" type="number" value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} className="w-24" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Agregar Productos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Select onValueChange={(value) => setSelectedDish(dishes.find(dish => dish.name === value) || null)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar Producto">
+                    {selectedDish ? selectedDish.name : "Seleccionar Producto"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {dishes.map(dish => (
+                    <SelectItem key={dish.id} value={dish.name}>
+                      {dish.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="quantity">Cantidad</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                  className="w-24"
+                />
+                <Button onClick={handleAddProduct} disabled={!selectedDish}>Agregar</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      )}
-      <header className="text-center">
-        <h1 className="text-3xl font-bold mb-2">Menú del Restaurante</h1>
-        <p className="text-muted-foreground">Haz tu pedido seleccionando los platos</p>
-      </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {dishes.map(dish => (
-          <article key={dish.id} className="p-4 rounded-xl shadow bg-white space-y-2">
-            <h2 className="text-xl font-semibold">{dish.name}</h2>
-            <p className="text-gray-700">{dish.price.toFixed(2)} €</p>
-            <Button onClick={() => addToOrder(dish)}>Añadir</Button>
-          </article>
-        ))}
-      </section>
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Orden Actual</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {orderItems.length === 0 ? (
+              <p className="text-gray-500">No hay productos en el pedido.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Producto</TableHead>
+                    <TableHead>Cantidad</TableHead>
+                    <TableHead>Precio</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderItems.map(item => (
+                    <TableRow key={item.order_dish_id}>
+                      <TableCell>{item.dish.name}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>{item.price.toFixed(2)} €</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => removeFromOrder(item.order_dish_id)}>Eliminar</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-      <aside className="bg-gray-100 p-4 rounded-xl shadow space-y-4">
-        <h2 className="text-2xl font-bold">Pedido Actual</h2>
-        {orderItems.length === 0 ? (
-          <p className="text-gray-600">No hay productos en el pedido.</p>
-        ) : (
-          <ul className="space-y-2">
-            {orderItems.map(item => (
-              <li key={item.dish.id} className="flex justify-between items-center">
-                <p className="text-lg">
-                  {item.quantity}× {item.dish.name}
-                </p>
-                <div className="space-x-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => removeFromOrder(item.dish.id)}
-                  >
-                    -
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => addToOrder(item.dish)}
-                  >
-                    +
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        <footer className="pt-4 border-t">
-          <p className="text-xl font-bold">Total: {total.toFixed(2)} €</p>
-        </footer>
-      </aside>
-    </main>
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Resumen del Pedido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="font-semibold">Sub Total:</div>
+              <div>{totals.subtotal.toFixed(2)} €</div>
+              <div className="font-semibold">I.V.A. (12%):</div>
+              <div>{totals.iva.toFixed(2)} €</div>
+              <div className="font-semibold">Propina (10%):</div>
+              <div>{totals.tip.toFixed(2)} €</div>
+              <div className="font-semibold">Total:</div>
+              <div>{totals.total.toFixed(2)} €</div>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
   );
+  }
 }

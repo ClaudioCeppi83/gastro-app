@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from "react";
 import {
@@ -16,7 +16,7 @@ import PageTitle from "@/components/ui/page-title";
 
 interface MenuItem {
   dish_id: number;
-  dish_name: string;
+  name: string;
   category_name: string;
   unit_price: number;
 }
@@ -29,38 +29,38 @@ interface Category {
 export default function Menu() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [newDish, setNewDish] = useState<{ name: string; unit_price: number; category_id: string }>({ name: "", unit_price: 0, category_id: "" });
+  const [newDish, setNewDish] = useState({
+    name: "",
+    unit_price: 0,
+    category_id: ""
+  });
   const [newDishPrice, setNewDishPrice] = useState("");
 
+  const fetchMenuItems = async () => {
+    try {
+      const response = await fetch('/api/menu');
+      if (response.ok) {
+        const data: MenuItem[] = await response.json();
+        setMenuItems(data);
+      }
+    } catch (error) {
+      console.error("Error fetching menu:", error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const data: Category[] = await response.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
   useEffect(() => {
-    const fetchMenuItems = async () => {
-      try {
-        const response = await fetch('/api/menu');
-        if (response.ok) {
-          const data: MenuItem[] = await response.json();
-          setMenuItems(data);
-        } else {
-          console.error("Failed to fetch menu:", response.status);
-        }
-      } catch (error) {
-        console.error("Error fetching menu:", error);
-      }
-    };
-
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('/api/categories'); // Assuming you'll create this API route
-        if (response.ok) {
-          const data: Category[] = await response.json();
-          setCategories(data);
-        } else {
-          console.error("Failed to fetch categories:", response.status);
-        }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-      }
-    };
-
     fetchMenuItems();
     fetchCategories();
   }, []);
@@ -74,15 +74,12 @@ export default function Menu() {
   };
 
   const handleNewDishPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    value = value.replace(/^0+/, "");
-    if (value === "" || parseInt(value) < 0) {
-      setNewDishPrice("");
-      setNewDish({ ...newDish, unit_price: 0 });
-    } else {
-      setNewDishPrice(value);
-      setNewDish({ ...newDish, unit_price: parseFloat(value) });
-    }
+    const value = e.target.value.replace(/^0+/, "") || "0";
+    setNewDishPrice(value);
+    setNewDish({ 
+      ...newDish, 
+      unit_price: parseFloat(value) || 0 
+    });
   };
 
   const addDish = async () => {
@@ -93,17 +90,17 @@ export default function Menu() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ name: newDish.name, unit_price: newDish.unit_price, category_id: Number(newDish.category_id) }),
+          body: JSON.stringify({ 
+            name: newDish.name, 
+            unit_price: newDish.unit_price, 
+            category_id: Number(newDish.category_id) 
+          }),
         });
 
         if (response.ok) {
           setNewDish({ name: "", unit_price: 0, category_id: "" });
           setNewDishPrice("");
-          // Assuming the API returns the new dish's data, including dish_id
-          const newDishData = await response.json(); // Or response.text() if it's just a success message
-          fetchMenuItems(); // Refresh the menu list
-        } else {
-          console.error("Failed to add dish:", response.status);
+          await fetchMenuItems(); // Usamos la función definida
         }
       } catch (error) {
         console.error("Error adding dish:", error);
@@ -127,8 +124,8 @@ export default function Menu() {
             </TableHeader>
             <TableBody>
               {menuItems.map((item) => (
-                <TableRow key={item.dish_id} className="[&_td]:py-2">
-                  <TableCell>{item.dish_name}</TableCell>
+                <TableRow key={item.dish_id}>
+                  <TableCell>{item.name}</TableCell>
                   <TableCell>{item.category_name}</TableCell>
                   <TableCell>${item.unit_price.toFixed(2)}</TableCell>
                 </TableRow>
@@ -141,7 +138,6 @@ export default function Menu() {
           <h2 id="form-section" className="text-xl font-semibold mb-4">Add New Dish</h2>
           <form className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5" onSubmit={(e) => { e.preventDefault(); addDish(); }}>
             <fieldset className="space-y-1">
-              <legend className="sr-only">Dish Name</legend>
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
@@ -152,7 +148,6 @@ export default function Menu() {
             </fieldset>
 
             <fieldset className="space-y-1">
-              <legend className="sr-only">Category</legend>
               <Label htmlFor="category_id">Category</Label>
               <select
                 id="category_id"
@@ -171,25 +166,22 @@ export default function Menu() {
             </fieldset>
 
             <fieldset className="space-y-1">
-              <legend className="sr-only">Unit Price</legend>
               <Label htmlFor="unit_price">Unit Price</Label>
               <Input
                 id="unit_price"
                 name="unit_price"
-                type="text"
+                type="number"
                 value={newDishPrice}
                 onChange={handleNewDishPriceChange}
-                min={0}
-                className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                min="0"
+                step="0.01"
               />
             </fieldset>
-          </form>
 
-          <footer className="mt-4">
-            <Button type="submit">
+            <Button type="submit" className="md:col-span-3">
               Add Dish
             </Button>
-          </footer>
+          </form>
         </section>
       </main>
     </>

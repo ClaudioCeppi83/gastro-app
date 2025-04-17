@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db'; // Assuming your database connection is in '@/lib/db'
+import { db } from '@/lib/db';
 
 export async function GET(
   req: NextRequest,
@@ -21,9 +21,8 @@ export async function GET(
       WHERE od.order_id = ?
     `;
     const result = await db.execute(query, [orderId]);
-    const rows = result.rows as any[]; // Adjust type assertion if needed for your DB library
 
-    const orderItems = rows.map(row => ({
+    const orderItems = (result as any).map((row: any) => ({
       dish_id: row.dish_id,
       ordered_name: row.ordered_name,
       quantity: row.quantity,

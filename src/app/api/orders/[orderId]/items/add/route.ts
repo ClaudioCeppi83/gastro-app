@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db'; // Assuming your db connection is in '@/lib/db'
+import { db } from '@/lib/db';
 
 export async function POST(
   req: NextRequest,
@@ -24,23 +24,22 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid item data' }, { status: 400 });
     }
 
-    // SQL query to insert the order item with its category
+    // SQL query to insert the order item
     const query = `
-      INSERT INTO OrderDishes (order_id, dish_id, quantity, ordered_name, ordered_unit_price, ordered_category_id)
-      VALUES (?, ?, ?, ?, ?, (SELECT category_id FROM Dishes WHERE id = ?))
+      INSERT INTO OrderDishes (order_id, dish_id, quantity, ordered_name, ordered_unit_price)
+      VALUES (?, ?, ?, ?, ?)
     `;
-    
-    // Execute the query
-    await db.execute(query, [orderId, dish_id, 1, ordered_name, ordered_unit_price, dish_id]); 
+
+    await db.execute(query, [orderId, dish_id, quantity, ordered_name, ordered_unit_price]);
 
     return NextResponse.json(
       { message: 'Item added to order successfully' },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('Error adding item to order:', error);
+  } catch (error: unknown) {
+    // Add a semicolon at the end of the line
     return NextResponse.json(
-      { error: 'Failed to add item to order' },
+      { error: 'Failed to add item to order', details: error instanceof Error ? error.message : 'An unknown error occurred' },
       { status: 500 }
     );
   }
