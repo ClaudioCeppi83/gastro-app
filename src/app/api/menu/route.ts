@@ -12,7 +12,7 @@ export async function GET() {
             error instanceof Error ? error.message : error
         );
         return NextResponse.json(
-            {
+          {
                 error: 'Failed to fetch menu',
                 details:
                     error instanceof Error ? error.message : 'An unknown error occurred',

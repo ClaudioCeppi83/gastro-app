@@ -18,9 +18,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ orderId });
 
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error(error.message);
-    }
+    console.error('Failed to create order', error instanceof Error ? error.message : error, { insertQuery: 'INSERT INTO Orders (status, consumption_date, total_price) VALUES (?, NOW(), ?)', selectIdQuery: "SELECT LAST_INSERT_ID() as orderId" });
+
     return NextResponse.json({ error: 'Failed to create order', details: error instanceof Error ? error.message : 'An unknown error occurred' }, { status: 500 });
   }
 }
